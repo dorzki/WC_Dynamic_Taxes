@@ -43,6 +43,8 @@ class Plugin {
 		add_action( 'admin_init', [ $this, 'register_settings' ] );
 		add_action( 'admin_menu', [ $this, 'register_settings_page' ] );
 
+		add_action( 'woocommerce_cart_calculate_fees', [ $this, 'apply_dynamic_taxes' ] );
+
 	}
 
 
@@ -125,6 +127,41 @@ class Plugin {
 			'dorzki-wc-dynamic-taxes',
 			[ $this, 'settings_page_output' ]
 		);
+
+	}
+
+
+	/* ------------------------------------------ */
+
+
+	/**
+	 * Determine if to add taxes and how much.
+	 *
+	 * @param \WC_Cart $cart current user cart.
+	 */
+	public function apply_dynamic_taxes( $cart ) {
+
+		$tax_options = get_option( 'wc_dynamic_taxes' );
+
+		if ( empty( $tax_options ) || empty( $tax_options['wc_dynamic_taxes_category'] ) ) {
+			return;
+		}
+
+		$total_taxes = 0;
+
+		foreach ( $cart->get_cart_contents() as $item ) {
+
+			$cats = wp_get_post_terms( $item['data']->get_ID(), 'product_cat', [ 'fields' => 'ids' ] );
+
+			$total_taxes += ( in_array( (int) $tax_options['wc_dynamic_taxes_category'], $cats, true ) );
+
+		}
+
+		if ( $total_taxes ) {
+
+			$cart->add_fee( sprintf( '%d&times; %s', $total_taxes, $tax_options['wc_dynamic_taxes_name'] ), $total_taxes * $tax_options['wc_dynamic_taxes_amount'], false );
+
+		}
 
 	}
 
